@@ -33,4 +33,4 @@ build/
 .vscode/
 
 ### API keys ###
-application.properties
+javigg/src/main/resources/application.properties
