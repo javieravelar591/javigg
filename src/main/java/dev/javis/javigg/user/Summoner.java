@@ -1,7 +1,11 @@
 package dev.javis.javigg.user;
 
 public record Summoner(
-    Integer id,
+    String id,
+    String accountId,
+    String puuid,
     String name,
-    Integer summonerLevel
+    int profileIconId,
+    long revisionDate,
+    long summonerLevel
 ) {}
