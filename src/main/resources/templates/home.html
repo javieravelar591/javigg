@@ -34,7 +34,9 @@
     </form>
     <h2>Summoner Info</h2>
     <div th:if="${summoner}">
-        <p><strong>Name:</strong> <span th:text="${summoner.name}"></span></p>
+        <p><strong>Name:</strong> 
+            <span th:text=${gameName}></span>&nbsp; &#35;
+            <span th:text=${tagLine}></span></p>
         <p><strong>Summoner Level:</strong> <span th:text="${summoner.summonerLevel}"></span></p>
         <p><strong>Profile Icon ID:</strong> <span th:text="${summoner.profileIconId}"></span></p>
         <!-- Add more fields as necessary -->
