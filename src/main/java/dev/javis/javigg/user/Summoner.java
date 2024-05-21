@@ -4,7 +4,7 @@ public record Summoner(
     String id,
     String accountId,
     String puuid,
-    String name,
+    String gameName,
     int profileIconId,
     long revisionDate,
     long summonerLevel
