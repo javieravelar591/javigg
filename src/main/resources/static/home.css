@@ -1,0 +1,20 @@
+body {
+    background-color: rgb(83, 81, 81);
+}
+
+#summonerForm {
+    display: flex;
+    flex-direction: row;
+}
+
+label, input {
+    display: block;
+    height: 4vh;
+}
+
+#submitSummoner {
+    height: 4.75vh;
+    background-color: rgb(87, 87, 255);
+    border-radius: 0 15px 15px 0;
+    border: 0;
+}

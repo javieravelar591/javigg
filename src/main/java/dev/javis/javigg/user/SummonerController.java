@@ -32,6 +32,9 @@ public class SummonerController {
 
     @Value("${riot.api.summoner.url}")
     private String summonerApiUrl;
+
+    @Value("${riot.api.match.url}")
+    private String matchApriUrl;
     
 
     private final RestTemplate restTemplate;
@@ -70,10 +73,16 @@ public class SummonerController {
             String summonerUrl = String.format("%s/lol/summoner/v4/summoners/by-puuid/%s?api_key=%s",
                                                summonerApiUrl, accountDto.puuid(), apiKey);
             Summoner summonerDto = restTemplate.getForObject(summonerUrl, Summoner.class);
+
+            // Get match history
+            List<String> matchHistory = getMatchHistory(accountDto.puuid());
+
+
             System.out.println(summonerDto);
             model.addAttribute("summoner", summonerDto);
             model.addAttribute("gameName", gameName);
             model.addAttribute("tagLine", tagLine);
+            model.addAttribute("matchHistory", matchHistory);
             System.out.println(model);
             return "home"; // Return to the same index page with summoner info populated
         } catch (HttpClientErrorException e) {
@@ -85,4 +94,20 @@ public class SummonerController {
             throw new RuntimeException("Unexpected error during API call", e);
         }
     }
+
+    public List<String> getMatchHistory(String puuid) {
+        try {
+        String matchesUrl = String.format("%s/lol/match/v5/matches/by-puuid/%s/ids/?start=0&count=20&api_key=%s",
+                                            matchApriUrl, puuid, apiKey);
+        return restTemplate.getForObject(matchesUrl, List.class);
+        } catch (HttpClientErrorException e) {
+            logger.error("HTTP error during API call: {}", e.getStatusCode(), e);
+            logger.error("Response body: {}", e.getResponseBodyAsString());
+            throw e;
+        } catch (Exception e) {
+            logger.error("Unexpected error during API call", e);
+            throw new RuntimeException("Unexpected error during API call", e);
+        }
+    }
+
 }
