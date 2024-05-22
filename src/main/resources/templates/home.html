@@ -2,6 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <title>Javi.GG</title>
+    <link rel="stylesheet" href="home.css">
     <!-- <script>
         function getSummonerInfo() {
             const gameName = document.getElementById("gameName").value;
@@ -25,12 +26,12 @@
 </head>
 <body>
     <h1>Enter Your League of Legends Username</h1>
-    <form th:action="@{/summoner}" method="get">
-        <label for="gameName">Game Name:</label>
-        <input type="text" id="gameName" name="gameName" required><br>
-        <label for="tagLine">Tag Line:</label>
-        <input type="text" id="tagLine" name="tagLine" required><br>
-        <input type="submit" value="Get Stats">
+    <form id="summonerForm" th:action="@{/summoner}" method="get">
+        <label for="gameName"></label>
+        <input type="text" id="gameName" name="gameName" placeholder="Name" required><br>
+        <label for="tagLine"></label>
+        <input type="text" id="tagLine" name="tagLine" placeholder="Tag Line"><br>
+        <input id="submitSummoner" type="submit" value="Get Stats">
     </form>
     <h2>Summoner Info</h2>
     <div th:if="${summoner}">
@@ -40,6 +41,12 @@
         <p><strong>Summoner Level:</strong> <span th:text="${summoner.summonerLevel}"></span></p>
         <p><strong>Profile Icon ID:</strong> <span th:text="${summoner.profileIconId}"></span></p>
         <!-- Add more fields as necessary -->
+        <h2>Match History</h2>
+        <div th:if="${matchHistory}">
+            <ul>
+                <li th:each="match : ${matchHistory}" th:text="${match}"></li>
+            </ul>
+        </div>
     </div>
 </body>
 </html>
