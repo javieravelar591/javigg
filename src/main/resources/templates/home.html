@@ -1,52 +1,46 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Javi.GG</title>
-    <link rel="stylesheet" href="home.css">
-    <!-- <script>
-        function getSummonerInfo() {
-            const gameName = document.getElementById("gameName").value;
-            const tagLine = document.getElementById("tagLine").value;
-
-            fetch(`/summoner/${gameName}/${tagLine}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("Network response was not ok " + response.statusText);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    document.getElementById("result").innerText = JSON.stringify(data, null, 2);
-                })
-                .catch(error => {
-                    document.getElementById("result").innerText = 'Error: ' + error.message;
-                });
-        }
-    </script> -->
+    <title>League of Legends Stats</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
 </head>
 <body>
-    <h1>Enter Your League of Legends Username</h1>
-    <form id="summonerForm" th:action="@{/summoner}" method="get">
-        <label for="gameName"></label>
-        <input type="text" id="gameName" name="gameName" placeholder="Name" required><br>
-        <label for="tagLine"></label>
-        <input type="text" id="tagLine" name="tagLine" placeholder="Tag Line"><br>
-        <input id="submitSummoner" type="submit" value="Get Stats">
-    </form>
-    <h2>Summoner Info</h2>
-    <div th:if="${summoner}">
-        <p><strong>Name:</strong> 
-            <span th:text=${gameName}></span>&nbsp; &#35;
-            <span th:text=${tagLine}></span></p>
-        <p><strong>Summoner Level:</strong> <span th:text="${summoner.summonerLevel}"></span></p>
-        <p><strong>Profile Icon ID:</strong> <span th:text="${summoner.profileIconId}"></span></p>
-        <!-- Add more fields as necessary -->
-        <h2>Match History</h2>
-        <div th:if="${matchHistory}">
-            <ul>
-                <li th:each="match : ${matchHistory}" th:text="${match}"></li>
-            </ul>
-        </div>
+    <div class="container">
+        <header>
+            <h1>League of Legends Stats</h1>
+            <form th:action="@{/summoner}" method="get" class="search-form">
+                <label for="gameName">Game Name:</label>
+                <input type="text" id="gameName" name="gameName" required>
+                <label for="tagLine">Tag Line:</label>
+                <input type="text" id="tagLine" name="tagLine" required>
+                <input type="submit" value="Get Stats">
+            </form>
+        </header>
+
+        <main>
+            <section th:if="${summoner}">
+                <h2>Summoner Info</h2>
+                <div class="summoner-info">
+                    <p><strong>Name:</strong> <span th:text="${gameName}"></span></p>
+                    <p><strong>Summoner Level:</strong> <span th:text="${summoner.summonerLevel}"></span></p>
+                    <p><strong>Profile Icon ID:</strong>
+                        <img th:src="@{/profileicon/{profileIconId}.png(profileIconId=${summoner.profileIconId})}" 
+                        alt="Profile Icon" />
+                    </p>
+                </div>
+            </section>
+
+            <section th:if="${matchHistory}">
+                <h2>Match History</h2>
+                <ul class="match-list">
+                    <li th:each="matchId : ${matchHistory}">
+                        <div class="match-item">
+                            <p><strong>Match ID:</strong> <span th:text="${matchId}"></span></p>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+        </main>
     </div>
 </body>
 </html>
