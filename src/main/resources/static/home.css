@@ -1,20 +1,80 @@
 body {
-    background-color: rgb(83, 81, 81);
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
 }
 
-#summonerForm {
+.container {
+    width: 80%;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+.search-form {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
+    align-items: center;
 }
 
-label, input {
-    display: block;
-    height: 4vh;
+.search-form label {
+    margin: 5px 0;
 }
 
-#submitSummoner {
-    height: 4.75vh;
-    background-color: rgb(87, 87, 255);
-    border-radius: 0 15px 15px 0;
-    border: 0;
+.search-form input[type="text"] {
+    padding: 10px;
+    margin-bottom: 10px;
+    width: 50%;
+    max-width: 300px;
+}
+
+.search-form input[type="submit"] {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.search-form input[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+main {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.summoner-info p {
+    margin: 10px 0;
+}
+
+.match-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+.match-item {
+    background-color: #e9ecef;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 8px;
+}
+
+.match-item p {
+    margin: 5px 0;
 }

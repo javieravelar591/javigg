@@ -1,8 +1,10 @@
 package dev.javis.javigg.user;
 
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +14,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.deser.DataFormatReaders.Match;
+
+import dev.javis.javigg.service.DataDragonService;
+
 import org.springframework.ui.Model;
 import jakarta.annotation.PostConstruct;
 
@@ -21,6 +28,11 @@ import org.slf4j.LoggerFactory;
 
 @Controller
 public class SummonerController {
+
+    @Autowired
+    private DataDragonService dataDragonService;
+
+    private final RestTemplate restTemplate;
 
     private static final Logger logger = LoggerFactory.getLogger(SummonerController.class);
 
@@ -36,8 +48,6 @@ public class SummonerController {
     @Value("${riot.api.match.url}")
     private String matchApriUrl;
     
-
-    private final RestTemplate restTemplate;
     
     public SummonerController() {
         this.restTemplate = new RestTemplate();
@@ -73,16 +83,23 @@ public class SummonerController {
             String summonerUrl = String.format("%s/lol/summoner/v4/summoners/by-puuid/%s?api_key=%s",
                                                summonerApiUrl, accountDto.puuid(), apiKey);
             Summoner summonerDto = restTemplate.getForObject(summonerUrl, Summoner.class);
+            System.out.println(summonerDto.profileIconId());
 
             // Get match history
             List<String> matchHistory = getMatchHistory(accountDto.puuid());
+            Map<String, Object> champData = dataDragonService.getChampData();
 
+            String profileIconData = dataDragonService.getProfileIconUrl(summonerDto.profileIconId());
+            System.out.println("profile icon: " + profileIconData);
 
             System.out.println(summonerDto);
             model.addAttribute("summoner", summonerDto);
             model.addAttribute("gameName", gameName);
             model.addAttribute("tagLine", tagLine);
             model.addAttribute("matchHistory", matchHistory);
+            // model.addAttribute("champData", champData);
+            // model.addAttribute("profileIconUrl", profileIconData);
+
             System.out.println(model);
             return "home"; // Return to the same index page with summoner info populated
         } catch (HttpClientErrorException e) {
