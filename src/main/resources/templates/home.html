@@ -24,8 +24,8 @@
                     <p><strong>Name:</strong> <span th:text="${gameName}"></span></p>
                     <p><strong>Summoner Level:</strong> <span th:text="${summoner.summonerLevel}"></span></p>
                     <p><strong>Profile Icon ID:</strong>
-                        <img th:src="@{/profileicon/{profileIconId}.png(profileIconId=${summoner.profileIconId})}" 
-                        alt="Profile Icon" />
+                        <img th:if="${profileIconUrl}" th:src="${profileIconUrl}" alt="Profile Icon" />
+                        <img th:unless="${profileIconUrl}" src="https://javigg-profileicons-bucket.s3.us-east-2.amazonaws.com/profileicon/0.png" alt="Default Profile Icon" />
                     </p>
                 </div>
             </section>

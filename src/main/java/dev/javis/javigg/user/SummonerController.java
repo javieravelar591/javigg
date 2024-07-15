@@ -87,10 +87,10 @@ public class SummonerController {
 
             // Get match history
             List<String> matchHistory = getMatchHistory(accountDto.puuid());
-            Map<String, Object> champData = dataDragonService.getChampData();
+            // Map<String, Object> champData = dataDragonService.getChampData();
 
-            String profileIconData = dataDragonService.getProfileIconUrl(summonerDto.profileIconId());
-            System.out.println("profile icon: " + profileIconData);
+            // Get profile Icon
+            String profileIconData = dataDragonService.getProfileIconUrl(String.valueOf(summonerDto.profileIconId()));
 
             System.out.println(summonerDto);
             model.addAttribute("summoner", summonerDto);
@@ -98,7 +98,7 @@ public class SummonerController {
             model.addAttribute("tagLine", tagLine);
             model.addAttribute("matchHistory", matchHistory);
             // model.addAttribute("champData", champData);
-            // model.addAttribute("profileIconUrl", profileIconData);
+            model.addAttribute("profileIconUrl", profileIconData);
 
             System.out.println(model);
             return "home"; // Return to the same index page with summoner info populated
