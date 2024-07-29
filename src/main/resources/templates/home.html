@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <title>League of Legends Stats</title>
-    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link rel="stylesheet" th:href="@{../home.css}"
 </head>
 <body>
     <div class="container">
@@ -24,8 +24,9 @@
                     <p><strong>Name:</strong> <span th:text="${gameName}"></span></p>
                     <p><strong>Summoner Level:</strong> <span th:text="${summoner.summonerLevel}"></span></p>
                     <p><strong>Profile Icon ID:</strong>
-                        <img th:if="${profileIconUrl}" th:src="${profileIconUrl}" alt="Profile Icon" />
-                        <img th:unless="${profileIconUrl}" src="https://javigg-profileicons-bucket.s3.us-east-2.amazonaws.com/profileicon/0.png" alt="Default Profile Icon" />
+                        <!-- <img th:src="https://javigg-profileicons-bucket.s3.us-east-2.amazonaws.com/profileicon/0.png"> -->
+                        <!-- <img th:if="${profileIconUrl}" th:src="${profileIconUrl}" alt="Profile Icon" /> -->
+                        <!-- <img th:unless="${profileIconUrl}" th:src="https://javigg-profileicons-bucket.s3.us-east-2.amazonaws.com/profileicon/0.png" alt="Default Profile Icon" /> -->
                     </p>
                 </div>
             </section>
