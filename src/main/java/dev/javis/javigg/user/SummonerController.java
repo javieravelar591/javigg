@@ -6,7 +6,9 @@ import java.util.Map;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import java.util.HashMap;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,7 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-@Controller
+@RestController
 public class SummonerController {
 
     @Autowired
@@ -60,14 +62,8 @@ public class SummonerController {
         System.out.println("Summoner API URL: " + summonerApiUrl);
     }
 
-    // landing page
-    @RequestMapping({"/", "/home"})
-    public String home() {
-        return "home";
-    }
-
     @GetMapping("/summoner")
-    public String getSummoner(@RequestParam String gameName, @RequestParam String tagLine, Model model) {
+    public ResponseEntity<?> getSummoner(@RequestParam String gameName, @RequestParam String tagLine) {
         try {
             // Get puuid
             String accountUrl = String.format("%s/riot/account/v1/accounts/by-riot-id/%s/%s?api_key=%s", 
@@ -77,7 +73,7 @@ public class SummonerController {
 
             if (accountDto == null || accountDto.puuid() == null) {
                 throw new RuntimeException("Unable to fetch account details.");
-            }
+            }   
 
             // Get summoner info
             String summonerUrl = String.format("%s/lol/summoner/v4/summoners/by-puuid/%s?api_key=%s",
@@ -90,25 +86,26 @@ public class SummonerController {
             // Map<String, Object> champData = dataDragonService.getChampData();
 
             // Get profile Icon
-            String profileIconData = dataDragonService.getProfileIconUrl(String.valueOf(summonerDto.profileIconId()));
+            // String profileIconData = dataDragonService.getProfileIconUrl(String.valueOf(summonerDto.profileIconId()));
 
             System.out.println(summonerDto);
-            model.addAttribute("summoner", summonerDto);
-            model.addAttribute("gameName", gameName);
-            model.addAttribute("tagLine", tagLine);
-            model.addAttribute("matchHistory", matchHistory);
-            // model.addAttribute("champData", champData);
-            model.addAttribute("profileIconUrl", profileIconData);
 
-            System.out.println(model);
-            return "home"; // Return to the same index page with summoner info populated
+            HashMap<String, Object> response = new HashMap<>();
+            response.put("summoner", summonerDto);
+            response.put("gameName", gameName);
+            response.put("tagLine", tagLine);
+            response.put("matchHistory", matchHistory);
+            //response.put("champData", champData);
+            response.put("profileIconUrl", dataDragonService.getProfileIconUrl(String.valueOf(summonerDto.profileIconId())));
+
+            return ResponseEntity.ok(response);
         } catch (HttpClientErrorException e) {
             logger.error("HTTP error during API call: {}", e.getStatusCode(), e);
             logger.error("Response body: {}", e.getResponseBodyAsString());
             throw e;
         } catch (Exception e) {
             logger.error("Unexpected error during API call", e);
-            throw new RuntimeException("Unexpected error during API call", e);
+            return ResponseEntity.status(500).body(java.util.Map.of("error", "Unexpected error during API call", "message", e.getMessage()));
         }
     }
 
