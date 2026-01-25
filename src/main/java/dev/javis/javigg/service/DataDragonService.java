@@ -21,7 +21,7 @@ public class DataDragonService {
     private Resource profileIconResource;
 
     
-    @Value("${external.profileicon.url}")
+    @Value("https://ddragon.leagueoflegends.com/cdn/13.6.1/img/profileicon/}")
     private String externalProfileIconUrl;
 
     private final ObjectMapper objectMapper;
