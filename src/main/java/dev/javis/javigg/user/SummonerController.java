@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import dev.javis.javigg.service.IMatchDto;
 
 import com.fasterxml.jackson.databind.deser.DataFormatReaders.Match;
 
@@ -57,9 +58,7 @@ public class SummonerController {
 
     @PostConstruct
     public void init() {
-        System.out.println("API Key: " + apiKey);
-        System.out.println("Account API URL: " + accountApiUrl);
-        System.out.println("Summoner API URL: " + summonerApiUrl);
+
     }
 
     @GetMapping("/summoner")
@@ -83,6 +82,8 @@ public class SummonerController {
 
             // Get match history
             List<String> matchHistory = getMatchHistory(accountDto.puuid());
+            List<IMatchDto.MatchDto> matchDetails = getMatchDetails(matchHistory);
+
             // Map<String, Object> champData = dataDragonService.getChampData();
 
             // Get profile Icon
@@ -95,6 +96,7 @@ public class SummonerController {
             response.put("gameName", gameName);
             response.put("tagLine", tagLine);
             response.put("matchHistory", matchHistory);
+            response.put("matchDetails", matchDetails);
             //response.put("champData", champData);
             response.put("profileIconUrl", dataDragonService.getProfileIconUrl(String.valueOf(summonerDto.profileIconId())));
 
@@ -122,6 +124,22 @@ public class SummonerController {
             logger.error("Unexpected error during API call", e);
             throw new RuntimeException("Unexpected error during API call", e);
         }
+    }
+
+    public List<IMatchDto.MatchDto> getMatchDetails(List<String> matchIds) {
+        List<IMatchDto.MatchDto> matchDetails = new java.util.ArrayList<>();
+        System.out.println(matchIds);
+        for (String matchId : matchIds) {
+            
+            String matchDetailUrl = String.format("%s/lol/match/v5/matches/%s?api_key=%s",
+                                                matchApriUrl, matchId, apiKey);
+            IMatchDto.MatchDto matchDetail = restTemplate.getForObject(matchDetailUrl, IMatchDto.MatchDto.class);
+            if (matchDetail != null) {
+                matchDetails.add(matchDetail);
+            }
+        }
+
+        return matchDetails;
     }
 
 }
