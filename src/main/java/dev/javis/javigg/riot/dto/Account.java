@@ -1,4 +1,4 @@
-package dev.javis.javigg.user;
+package dev.javis.javigg.riot.dto;
 
 public record Account(
     String puuid,
