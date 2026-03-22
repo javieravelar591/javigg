@@ -39,20 +39,31 @@ public class LiveGameService {
 
         // 2. For each participant, get last 3 results + streak
         for (CurrentGameParticipant p : game.participants()) {
+            if (p.puuid() == null || p.puuid().isBlank()) continue;
 
-            Account account = riotApiClient.getAccountByPuuid(p.puuid());
-            List<Boolean> last3Results = matchService.getLast3MatchResults(p.puuid());
-            MiniStreakDto streak = streakService.calculateMiniStreak(last3Results);
-            System.out.println(account);
+            try {
+                Account account = riotApiClient.getAccountByPuuid(p.puuid());
+                List<Boolean> last3Results = matchService.getLast3MatchResults(p.puuid());
+                MiniStreakDto streak = streakService.calculateMiniStreak(last3Results);
 
-            players.add(new LivePlayerDto(
-                    p.puuid(),
-                    account.gameName(),
-                    p.championId(),
-                    p.profileIconId(),
-                    p.teamId(),
-                    streak
-            ));
+                players.add(new LivePlayerDto(
+                        p.puuid(),
+                        account != null ? account.gameName() : null,
+                        p.championId(),
+                        p.profileIconId(),
+                        p.teamId(),
+                        streak
+                ));
+            } catch (Exception e) {
+                players.add(new LivePlayerDto(
+                        p.puuid(),
+                        null,
+                        p.championId(),
+                        p.profileIconId(),
+                        p.teamId(),
+                        streakService.calculateMiniStreak(List.of())
+                ));
+            }
         }
 
         // 3. Return full lobby DTO
