@@ -35,4 +35,4 @@ build/
 ### API keys ###
 javigg/src/main/resources/application.properties
 application.properties
-src/main/resources/application-local.properties
+application-local.properties
