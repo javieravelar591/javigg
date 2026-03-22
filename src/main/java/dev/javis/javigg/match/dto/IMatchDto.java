@@ -81,7 +81,13 @@ public interface IMatchDto {
                             String individualPosition,
                             int killingSprees,
                             String summonerName,
-                            int summonerLevel
+                            int summonerLevel,
+                            int summoner1Id,
+                            int summoner2Id,
+                            PerksDto perks
                             ) { }
+    record PerksDto(List<PerkStyleDto> styles) {}
+    record PerkStyleDto(String description, List<PerkStyleSelectionDto> selections, int style) {}
+    record PerkStyleSelectionDto(int perk, int var1, int var2, int var3) {}
     public record StreakDto(int count, boolean isWinStreak) { }
 }
