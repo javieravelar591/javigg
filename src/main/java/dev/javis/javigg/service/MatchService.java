@@ -6,8 +6,10 @@ import org.springframework.web.client.RestTemplate;
 
 import dev.javis.javigg.match.dto.IMatchDto;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Service
 public class MatchService {
@@ -39,14 +41,14 @@ public class MatchService {
     }
 
     public List<IMatchDto.MatchDto> getMatchDetails(List<String> matchIds) {
-        List<IMatchDto.MatchDto> matches = new ArrayList<>();
+        List<CompletableFuture<IMatchDto.MatchDto>> futures = matchIds.stream()
+                .map(id -> CompletableFuture.supplyAsync(() -> getMatchDetail(id)))
+                .toList();
 
-        for (String matchId : matchIds) {
-            IMatchDto.MatchDto match = getMatchDetail(matchId);
-            if (match != null) matches.add(match);
-        }
-
-        return matches;
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -54,22 +56,22 @@ public class MatchService {
      */
     public List<Boolean> getLast3MatchResults(String puuid) {
         List<String> matchIds = getMatchHistory(puuid, 3);
-        List<Boolean> results = new ArrayList<>();
 
-        for (String matchId : matchIds) {
-            IMatchDto.MatchDto match = getMatchDetail(matchId);
+        List<CompletableFuture<Boolean>> futures = matchIds.stream()
+                .map(matchId -> CompletableFuture.supplyAsync(() -> {
+                    IMatchDto.MatchDto match = getMatchDetail(matchId);
+                    if (match == null) return null;
+                    return match.info().participants().stream()
+                            .filter(p -> puuid.equals(p.puuid()))
+                            .findFirst()
+                            .map(IMatchDto.ParticipantDto::win)
+                            .orElse(false);
+                }))
+                .toList();
 
-            if (match == null) continue;
-
-            boolean win = match.info().participants().stream()
-                    .filter(p -> puuid.equals(p.puuid()))
-                    .findFirst()
-                    .map(IMatchDto.ParticipantDto::win)
-                    .orElse(false);
-
-            results.add(win);
-        }
-
-        return results;
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 }
