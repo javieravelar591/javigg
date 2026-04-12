@@ -17,13 +17,16 @@ public class LiveGameService {
 
     private final MatchService matchService;
     private final StreakService streakService;
+    private final TagService tagService;
     private final RiotApiClient riotApiClient; // low-level HTTP calls to Riot API
 
     public LiveGameService(MatchService matchService,
                            StreakService streakService,
+                           TagService tagService,
                            RiotApiClient riotApiClient) {
         this.matchService = matchService;
         this.streakService = streakService;
+        this.tagService = tagService;
         this.riotApiClient = riotApiClient;
     }
 
@@ -45,6 +48,7 @@ public class LiveGameService {
                 Account account = riotApiClient.getAccountByPuuid(p.puuid());
                 List<Boolean> last3Results = matchService.getLast3MatchResults(p.puuid());
                 MiniStreakDto streak = streakService.calculateMiniStreak(last3Results);
+                List<String> tags = tagService.generateTags(p.puuid());
 
                 players.add(new LivePlayerDto(
                         p.puuid(),
@@ -52,7 +56,8 @@ public class LiveGameService {
                         p.championId(),
                         p.profileIconId(),
                         p.teamId(),
-                        streak
+                        streak,
+                        tags
                 ));
             } catch (Exception e) {
                 players.add(new LivePlayerDto(
@@ -61,7 +66,8 @@ public class LiveGameService {
                         p.championId(),
                         p.profileIconId(),
                         p.teamId(),
-                        streakService.calculateMiniStreak(List.of())
+                        streakService.calculateMiniStreak(List.of()),
+                        List.of()
                 ));
             }
         }
