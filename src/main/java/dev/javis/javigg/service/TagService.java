@@ -11,19 +11,10 @@ import java.util.stream.Collectors;
 @Service
 public class TagService {
 
-    private final MatchService matchService;
-
-    public TagService(MatchService matchService) {
-        this.matchService = matchService;
-    }
-
-    public List<String> generateTags(String puuid) {
+    public List<String> generateTags(String puuid, List<IMatchDto.MatchDto> matches) {
         List<String> tags = new ArrayList<>();
 
         try {
-            List<String> matchIds = matchService.getMatchHistory(puuid, 5);
-            List<IMatchDto.MatchDto> matches = matchService.getMatchDetails(matchIds);
-
             List<IMatchDto.ParticipantDto> myStats = matches.stream()
                     .map(m -> m.info().participants().stream()
                             .filter(p -> puuid.equals(p.puuid()))
