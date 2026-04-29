@@ -3,7 +3,6 @@ package dev.javis.javigg.service;
 import dev.javis.javigg.service.LiveGameService;
 import dev.javis.javigg.riot.dto.LiveGameLobbyDto;
 
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,7 +17,6 @@ public class LiveGameController {
     }
 
     @GetMapping("/live-game")
-    @CrossOrigin(origins = "http://localhost:5173")
     public LiveGameLobbyDto getLiveGame(@RequestParam String puuid) {
         // Call the service to build the lobby
         LiveGameLobbyDto lobby = liveGameService.buildLiveGameLobby(puuid);
