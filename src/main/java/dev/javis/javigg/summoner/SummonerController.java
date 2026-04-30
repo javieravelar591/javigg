@@ -40,7 +40,7 @@ public class SummonerController {
         Account account = summonerService.getAccountByRiotId(gameName, tagLine);
         Summoner summoner = summonerService.getSummonerByPuuid(account.puuid());
 
-        List<String> matchHistory = matchService.getMatchHistory(account.puuid(), 20);
+        List<String> matchHistory = matchService.getMatchHistory(account.puuid(), 10);
         List<IMatchDto.MatchDto> matchDetails = matchService.getMatchDetails(matchHistory);
         LeagueEntryDto rankedSoloEntry = summonerService.getSoloQueueEntry(account.puuid()).orElse(null);
 
