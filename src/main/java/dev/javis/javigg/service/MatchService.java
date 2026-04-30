@@ -9,12 +9,14 @@ import dev.javis.javigg.match.dto.IMatchDto;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
 @Service
 public class MatchService {
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final Semaphore riotRateLimit = new Semaphore(10);
 
     @Value("${riot.api.key}")
     private String apiKey;
@@ -37,7 +39,15 @@ public class MatchService {
                 matchApiUrl, matchId, apiKey
         );
 
-        return restTemplate.getForObject(url, IMatchDto.MatchDto.class);
+        try {
+            riotRateLimit.acquire();
+            return restTemplate.getForObject(url, IMatchDto.MatchDto.class);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } finally {
+            riotRateLimit.release();
+        }
     }
 
     public List<IMatchDto.MatchDto> getMatchDetails(List<String> matchIds) {
