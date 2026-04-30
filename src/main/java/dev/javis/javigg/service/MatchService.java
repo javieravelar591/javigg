@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
 public class MatchService {
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final Semaphore riotRateLimit = new Semaphore(10);
 
     @Value("${riot.api.key}")
     private String apiKey;
@@ -39,15 +38,7 @@ public class MatchService {
                 matchApiUrl, matchId, apiKey
         );
 
-        try {
-            riotRateLimit.acquire();
-            return restTemplate.getForObject(url, IMatchDto.MatchDto.class);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return null;
-        } finally {
-            riotRateLimit.release();
-        }
+        return restTemplate.getForObject(url, IMatchDto.MatchDto.class);
     }
 
     public List<IMatchDto.MatchDto> getMatchDetails(List<String> matchIds) {
