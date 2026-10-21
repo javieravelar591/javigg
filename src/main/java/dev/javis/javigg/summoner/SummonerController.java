@@ -1,57 +1,28 @@
 package dev.javis.javigg.summoner;
 
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.javis.javigg.datadragon.DataDragonService;
-import dev.javis.javigg.match.dto.IMatchDto;
-import dev.javis.javigg.riot.dto.Account;
-import dev.javis.javigg.riot.dto.LeagueEntryDto;
-import dev.javis.javigg.riot.dto.Summoner;
-import dev.javis.javigg.service.MatchService;
-import dev.javis.javigg.service.SummonerService;
+import dev.javis.javigg.service.ProfileService;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @RestController
 public class SummonerController {
 
-    private final SummonerService summonerService;
-    private final MatchService matchService;
-    private final DataDragonService dataDragonService;
+    private final ProfileService profileService;
 
-    public SummonerController(SummonerService summonerService,
-                              MatchService matchService,
-                              DataDragonService dataDragonService) {
-        this.summonerService = summonerService;
-        this.matchService = matchService;
-        this.dataDragonService = dataDragonService;
+    public SummonerController(ProfileService profileService) {
+        this.profileService = profileService;
     }
 
+    // Riot ID limits: gameName 3-16 characters, tagLine 3-5.
     @GetMapping("/summoner")
-    public ResponseEntity<?> getSummoner(
-            @RequestParam String gameName,
-            @RequestParam String tagLine
+    public SummonerProfileDto getSummoner(
+            @RequestParam @NotBlank @Size(max = 16) String gameName,
+            @RequestParam @NotBlank @Size(max = 5) String tagLine
     ) {
-
-        Account account = summonerService.getAccountByRiotId(gameName, tagLine);
-        Summoner summoner = summonerService.getSummonerByPuuid(account.puuid());
-
-        List<String> matchHistory = matchService.getMatchHistory(account.puuid(), 10);
-        List<IMatchDto.MatchDto> matchDetails = matchService.getMatchDetails(matchHistory);
-        LeagueEntryDto rankedSoloEntry = summonerService.getSoloQueueEntry(account.puuid()).orElse(null);
-
-        var response = new java.util.HashMap<String, Object>();
-        response.put("account", account);
-        response.put("summoner", summoner);
-        response.put("matchHistory", matchHistory);
-        response.put("matchDetails", matchDetails);
-        response.put("profileIconUrl", dataDragonService.getProfileIconUrl(String.valueOf(summoner.profileIconId())));
-        response.put("rankedSolo", rankedSoloEntry);
-
-        return ResponseEntity.ok(response);
+        return profileService.getProfile(gameName.trim(), tagLine.trim());
     }
 }

@@ -1,78 +1,79 @@
 package dev.javis.javigg.service;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
-import dev.javis.javigg.match.dto.IMatchDto;
-
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Semaphore;
-import java.util.stream.Collectors;
+import java.util.concurrent.Executor;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+
+import dev.javis.javigg.config.RiotExecutorConfig;
+import dev.javis.javigg.match.dto.IMatchDto;
+import dev.javis.javigg.riot.RiotApiClient;
+
+/** Riot Match v5: match IDs and match details. */
 @Service
 public class MatchService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RiotApiClient riotApiClient;
+    private final Executor executor;
+    private final String matchApiUrl;
 
-    @Value("${riot.api.key}")
-    private String apiKey;
+    // Finished matches never change, so cached details save most of the Riot calls behind profile
+    // views and live-game lookups.
+    private final Cache<String, IMatchDto.MatchDto> matchCache = Caffeine.newBuilder()
+            .maximumSize(2_000)
+            .expireAfterAccess(Duration.ofHours(1))
+            .build();
 
-    @Value("${riot.api.match.url}")
-    private String matchApiUrl;
-
-    public List<String> getMatchHistory(String puuid, int count) {
-        String url = String.format(
-                "%s/lol/match/v5/matches/by-puuid/%s/ids?start=0&count=%d&api_key=%s",
-                matchApiUrl, puuid, count, apiKey
-        );
-
-        return restTemplate.getForObject(url, List.class);
+    public MatchService(RiotApiClient riotApiClient,
+                        @Qualifier(RiotExecutorConfig.RIOT_EXECUTOR) Executor executor,
+                        @Value("${riot.api.match.url}") String matchApiUrl) {
+        this.riotApiClient = riotApiClient;
+        this.executor = executor;
+        this.matchApiUrl = matchApiUrl;
     }
 
-    public IMatchDto.MatchDto getMatchDetail(String matchId) {
-        String url = String.format(
-                "%s/lol/match/v5/matches/%s?api_key=%s",
-                matchApiUrl, matchId, apiKey
-        );
-
-        return restTemplate.getForObject(url, IMatchDto.MatchDto.class);
+    public List<String> getMatchIds(String puuid, int count) {
+        String[] ids = riotApiClient.get(matchApiUrl,
+                "/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count={count}",
+                String[].class, puuid, count);
+        return ids == null ? List.of() : Arrays.asList(ids);
     }
 
-    public List<IMatchDto.MatchDto> getMatchDetails(List<String> matchIds) {
+    public IMatchDto.MatchDto getMatch(String matchId) {
+        IMatchDto.MatchDto cached = matchCache.getIfPresent(matchId);
+        if (cached != null) return cached;
+
+        IMatchDto.MatchDto match = riotApiClient.get(matchApiUrl, "/lol/match/v5/matches/{matchId}",
+                IMatchDto.MatchDto.class, matchId);
+        if (match != null) matchCache.put(matchId, match);
+        return match;
+    }
+
+    /** Fetches match details in parallel, preserving the order of {@code matchIds}. */
+    public CompletableFuture<List<IMatchDto.MatchDto>> getMatchesAsync(List<String> matchIds) {
         List<CompletableFuture<IMatchDto.MatchDto>> futures = matchIds.stream()
-                .map(id -> CompletableFuture.supplyAsync(() -> getMatchDetail(id)))
+                .map(id -> CompletableFuture.supplyAsync(() -> getMatch(id), executor))
                 .toList();
 
-        return futures.stream()
-                .map(CompletableFuture::join)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+                .thenApply(ignored -> futures.stream()
+                        .map(CompletableFuture::join)
+                        .filter(Objects::nonNull)
+                        .toList());
     }
 
-    /**
-     * Used by streak system
-     */
-    public List<Boolean> getLast3MatchResults(String puuid) {
-        List<String> matchIds = getMatchHistory(puuid, 3);
-
-        List<CompletableFuture<Boolean>> futures = matchIds.stream()
-                .map(matchId -> CompletableFuture.supplyAsync(() -> {
-                    IMatchDto.MatchDto match = getMatchDetail(matchId);
-                    if (match == null) return null;
-                    return match.info().participants().stream()
-                            .filter(p -> puuid.equals(p.puuid()))
-                            .findFirst()
-                            .map(IMatchDto.ParticipantDto::win)
-                            .orElse(false);
-                }))
-                .toList();
-
-        return futures.stream()
-                .map(CompletableFuture::join)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+    /** Most recent {@code count} matches for a player, newest first. */
+    public CompletableFuture<List<IMatchDto.MatchDto>> getRecentMatchesAsync(String puuid, int count) {
+        return CompletableFuture.supplyAsync(() -> getMatchIds(puuid, count), executor)
+                .thenCompose(this::getMatchesAsync);
     }
 }
