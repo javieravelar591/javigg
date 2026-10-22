@@ -41,7 +41,9 @@ There is no database. Every request fans out to Riot, so Riot's rate limits are 
   Never create a `RestTemplate` anywhere else.
 - **Services** (`service/`) come in two kinds, following the separation from GitHub issue #3:
   - one per Riot API, each owning its endpoint paths: `AccountService`, `SummonerService`, `LeagueService`, `MatchService`, `SpectatorService`
-  - aggregators that call only other services: `ProfileService` (behind `/summoner`), `LiveGameService` (behind `/live-game`), and the pure-logic `StreakService` and `TagService`
+  - aggregators that call only other services: `ProfileService` (behind `/summoner`), `LiveGameService` (behind `/live-game`), and the pure-logic `StreakService`, `TagService`, `PlayerStatsService`
+- **Ranked data.** `LeagueService.getRankedEntries` fetches league-v4 once and returns both solo (`RANKED_SOLO_5x5`) and flex (`RANKED_FLEX_SR`) entries from the same response — there's no separate "get flex" call. Riot's API only exposes the *current* season's standing per queue; there's no history endpoint, so past-season ranks aren't available without javigg standing up its own persistence to snapshot them over time (tracked separately, not implemented here).
+- **Player stats.** `PlayerStatsService` is pure logic (no Riot calls): it aggregates the already-fetched `matchDetails` into `championBreakdown` (top 5 most-played champions by games, with win rate) and `roleBreakdown` (grouped by Riot's `teamPosition` field). Both only cover as many recent games as `ProfileService.MATCH_HISTORY_COUNT` fetches (currently 20) — they are not full-career stats.
 - **Concurrency.** Parallel calls run on the bounded `riotExecutor` pool (`config/RiotExecutorConfig`), never the common pool. Compose futures with `thenCompose`/`thenCombine` instead of calling `join()` inside a pool task, because a bounded pool can deadlock when tasks wait on their own subtasks. `LiveGameService` is the example to follow.
 - **Caching.** `MatchService` caches match details in Caffeine; finished matches are immutable. Nothing else is cached.
 - **Errors.** `config/ApiExceptionHandler` maps failures to ProblemDetail responses:

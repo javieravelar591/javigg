@@ -30,14 +30,17 @@ class SummonerControllerTest {
         when(profileService.getProfile("Javi", "NA1", Region.NA1)).thenReturn(new SummonerProfileDto(
                 new Account("abc", "Javi", "NA1"),
                 new Summoner("abc", 29, 0, 300),
-                List.of(), List.of(), null));
+                List.of(), List.of(), null, null, List.of(), List.of()));
 
         mvc.perform(get("/summoner").param("gameName", "Javi").param("tagLine", "NA1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.account.puuid").value("abc"))
                 .andExpect(jsonPath("$.summoner.summonerLevel").value(300))
                 .andExpect(jsonPath("$.matchDetails").isArray())
-                .andExpect(jsonPath("$.rankedSolo").doesNotExist());
+                .andExpect(jsonPath("$.rankedSolo").doesNotExist())
+                .andExpect(jsonPath("$.rankedFlex").doesNotExist())
+                .andExpect(jsonPath("$.championStats").isArray())
+                .andExpect(jsonPath("$.roleStats").isArray());
     }
 
     @Test
@@ -53,7 +56,7 @@ class SummonerControllerTest {
         when(profileService.getProfile("Javi", "EUW", Region.EUW1)).thenReturn(new SummonerProfileDto(
                 new Account("abc", "Javi", "EUW"),
                 new Summoner("abc", 29, 0, 300),
-                List.of(), List.of(), null));
+                List.of(), List.of(), null, null, List.of(), List.of()));
 
         mvc.perform(get("/summoner").param("gameName", "Javi").param("tagLine", "EUW").param("region", "euw1"))
                 .andExpect(status().isOk())
