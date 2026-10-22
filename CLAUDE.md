@@ -1,0 +1,55 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+Spring Boot 3.2.5 / Java 17 REST API backing JaviGG, a League of Legends stats site. It wraps the Riot Games API. The React frontend lives in the sibling repo `../javigg-client`, which calls this API's `/summoner` and `/live-game` endpoints.
+
+## Commands
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local   # run on :8080
+./mvnw clean package                                       # build jar (runs tests)
+./mvnw test                                                # all tests
+./mvnw test -Dtest=RiotApiClientTest                       # single class
+./mvnw test -Dtest=RiotApiClientTest#retriesAfter429ThenSucceeds   # single method
+```
+
+## Configuration
+
+`application.properties` and `application-local.properties` are gitignored, so they never show up in the repo; the README lists the required keys. `src/test/resources/application.properties` holds dummy values so tests run without a key. That file is explicitly un-ignored in `.gitignore`.
+
+Code reads these properties through `@Value`:
+
+- `riot.api.key`
+- `riot.api.{account,match}.url`: regional host (americas)
+- `riot.api.{summoner,spectator}.url`: platform host (na1). League v4 uses `riot.api.league.url`, which defaults to the summoner URL.
+- `allowed.origins`: comma-separated; read by `config/CorsConfig`, which allows GET only
+- Optional: `riot.api.rate-limits` (default `20:1,100:120`, the dev-key limits), `riot.api.rate-limit-max-wait`, `riot.executor.threads`
+
+## Architecture
+
+There is no database. Every request fans out to Riot, so Riot's rate limits are the main scaling constraint.
+
+- **`riot/RiotApiClient`** is the only class that makes HTTP calls. Services call `get(baseUrl, pathTemplate, Type.class, vars...)`, and the client:
+  - sends the key in the `X-Riot-Token` header, never in the URL
+  - strictly encodes URI variables, so user input can't escape its path segment
+  - acquires a slot from `RiotRateLimiter`, which keeps sliding windows per host because Riot limits per routing value
+  - retries 429s that carry a short `Retry-After`
+  - turns every failure into a `RiotApiException` carrying an HTTP status
+
+  Never create a `RestTemplate` anywhere else.
+- **Services** (`service/`) come in two kinds, following the separation from GitHub issue #3:
+  - one per Riot API, each owning its endpoint paths: `AccountService`, `SummonerService`, `LeagueService`, `MatchService`, `SpectatorService`
+  - aggregators that call only other services: `ProfileService` (behind `/summoner`), `LiveGameService` (behind `/live-game`), and the pure-logic `StreakService` and `TagService`
+- **Concurrency.** Parallel calls run on the bounded `riotExecutor` pool (`config/RiotExecutorConfig`), never the common pool. Compose futures with `thenCompose`/`thenCombine` instead of calling `join()` inside a pool task, because a bounded pool can deadlock when tasks wait on their own subtasks. `LiveGameService` is the example to follow.
+- **Caching.** `MatchService` caches match details in Caffeine; finished matches are immutable. Nothing else is cached.
+- **Errors.** `config/ApiExceptionHandler` maps failures to ProblemDetail responses:
+  - Riot 404 → 404
+  - `NotInGameException` → 404
+  - 429 or exhausted local limit → 503 with `Retry-After`
+  - validation failures → 400
+  - any other Riot failure → 502
+- **Validation.** Request params are validated with Jakarta annotations directly on controller method params. This relies on Spring 6.1's built-in method validation, so no `@Validated` is needed.
+- **Response shapes.** `/summoner` returns `summoner/SummonerProfileDto`. The client's hand-written TypeScript interfaces in `javigg-client/src/App.tsx` mirror this record and `LiveGameLobbyDto`, so keep both sides in sync.
+- **DTOs** are Java records. The full Match v5 payload lives in `match/dto/IMatchDto`, and `MatchDto.participant(puuid)` finds one player's stats.
+- **Region** is NA only, via the configured base URLs. GitHub issue #1 tracks multi-region support.

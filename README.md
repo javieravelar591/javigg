@@ -5,10 +5,11 @@ Spring Boot REST API that powers the JaviGG stats client. Wraps the Riot Games A
 ## Features
 
 - **Summoner lookup** — resolves Riot ID → PUUID → summoner profile + ranked entry
-- **Match history** — fetches last 20 match IDs and retrieves all match details in parallel
+- **Match history** — fetches the last 10 match IDs and retrieves all match details in parallel (finished matches are cached in memory)
 - **Ranked standing** — solo/duo queue tier, LP, wins, and losses via League v4 API
 - **Live game** — active game info with per-player streak calculation (HOT/COLD/NEUTRAL based on last 3 results)
-- **Parallel fetching** — match details and streak lookups use `CompletableFuture` to run concurrently
+- **Parallel fetching** — independent Riot calls run concurrently on a bounded thread pool
+- **Rate limiting** — client-side enforcement of Riot's app rate limits per routing host, plus automatic retry on 429 using `Retry-After`
 
 ## Tech Stack
 
@@ -30,7 +31,19 @@ Create `application-local.properties` in the project root (already in `.gitignor
 
 ```properties
 riot.api.key=RGAPI-your-key-here
+riot.api.account.url=https://americas.api.riotgames.com
+riot.api.match.url=https://americas.api.riotgames.com
+riot.api.summoner.url=https://na1.api.riotgames.com
+riot.api.spectator.url=https://na1.api.riotgames.com
+allowed.origins=http://localhost:5173
+
+# Optional
+# riot.api.rate-limits=20:1,100:120     # requests:seconds windows; default matches a dev key
+# riot.api.rate-limit-max-wait=10s      # fail with 503 instead of waiting longer than this
+# riot.executor.threads=16
 ```
+
+With a production key, set `riot.api.rate-limits` to the limits shown for your app on the Riot developer portal (e.g. `500:10,30000:600`).
 
 ### Run
 
@@ -54,7 +67,7 @@ Returns full summoner profile with match history and ranked data.
   "account":      { "puuid": "...", "gameName": "...", "tagLine": "..." },
   "summoner":     { "puuid": "...", "profileIconId": 123, "summonerLevel": 200 },
   "matchHistory": ["NA1_1234567890", ...],
-  "matchDetails": [ ...20 full match objects... ],
+  "matchDetails": [ ...10 full match objects... ],
   "rankedSolo":   { "tier": "GOLD", "rank": "II", "leaguePoints": 45, "wins": 75, "losses": 60 }
 }
 ```
@@ -85,30 +98,36 @@ Returns the current active game for a summoner.
 }
 ```
 
-Returns a 500 if the summoner is not currently in a game.
+### Errors
+
+Errors are returned as RFC 7807 `application/problem+json`:
+
+| Status | When |
+|--------|------|
+| 400 | Missing or malformed query params |
+| 404 | Riot ID not found, or (for `/live-game`) the player is not in a game |
+| 502 | Riot API failed or rejected the key |
+| 503 | Rate limit reached; includes a `Retry-After` header |
 
 ## Project Structure
 
 ```
 src/main/java/dev/javis/javigg/
-  summoner/          # SummonerController — main profile endpoint
-  service/
-    SummonerService  # Account + summoner + ranked API calls
-    MatchService     # Match history + parallel detail fetching
-    LiveGameService  # Active game + per-player streak resolution
-    LiveGameController
-    StreakService    # HOT/COLD/NEUTRAL from last 3 match results
+  summoner/          # GET /summoner controller + response record
+  livegame/          # GET /live-game controller
+  service/           # One service per Riot API (Account, Summoner, League, Match, Spectator)
+                     #   plus aggregators: ProfileService, LiveGameService, StreakService, TagService
   riot/
-    RiotApiClient    # Low-level HTTP wrappers for Riot endpoints
-    dto/             # API response DTOs (Account, Summoner, LeagueEntry, etc.)
+    RiotApiClient    # The only HTTP client: auth header, URL encoding, rate limiting, 429 retries
+    RiotRateLimiter  # Per-host sliding-window limiter
+    dto/             # Riot response DTOs (records)
   match/dto/
     IMatchDto        # Full match response DTO (participants, perks, etc.)
-  datadragon/
-    DataDragonService  # Profile icon URL resolution
+  config/            # CORS, Riot thread pool, global exception handler
 ```
 
 ## Notes
 
 - Development Riot API keys expire every 24 hours — restart with a fresh key as needed
-- Region is currently hardcoded to NA (`na1.api.riotgames.com` / `americas.api.riotgames.com`)
-- For production deployment, `@CrossOrigin` in `LiveGameController` should be updated to the deployed frontend URL
+- Region is currently NA only, via the configured base URLs
+- For production deployment, set `allowed.origins` to the deployed frontend URL(s), e.g. `https://www.javigg.com,https://javigg.com`

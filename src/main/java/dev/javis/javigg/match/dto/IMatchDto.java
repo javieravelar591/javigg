@@ -1,9 +1,18 @@
 package dev.javis.javigg.match.dto;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface IMatchDto {
-    record MatchDto(MetaDataDto metadata, InfoDto info) { }
+    record MatchDto(MetaDataDto metadata, InfoDto info) {
+        /** The given player's stats in this match, if they played in it. */
+        public Optional<ParticipantDto> participant(String puuid) {
+            if (info == null || info.participants() == null) return Optional.empty();
+            return info.participants().stream()
+                    .filter(p -> puuid.equals(p.puuid()))
+                    .findFirst();
+        }
+    }
     record MetaDataDto(String dataVersion, String matchId, List<String> participants) { }
     record InfoDto(String endOfGameResult, long gameDuration, long gameEndTimestamp, long gameStartTimestamp, 
                     String gameMode, int mapId, int queueId, String gameVersion, 

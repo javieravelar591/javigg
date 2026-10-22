@@ -1,99 +1,101 @@
 package dev.javis.javigg.service;
 
+import dev.javis.javigg.config.RiotExecutorConfig;
 import dev.javis.javigg.match.dto.IMatchDto;
-import dev.javis.javigg.riot.RiotApiClient;
-import dev.javis.javigg.riot.dto.currentgame.CurrentGameInfo;
-import dev.javis.javigg.riot.dto.currentgame.CurrentGameParticipant;
+import dev.javis.javigg.riot.dto.Account;
 import dev.javis.javigg.riot.dto.LiveGameLobbyDto;
 import dev.javis.javigg.riot.dto.LivePlayerDto;
-import dev.javis.javigg.riot.dto.Account;
+import dev.javis.javigg.riot.dto.currentgame.CurrentGameInfo;
+import dev.javis.javigg.riot.dto.currentgame.CurrentGameParticipant;
 import dev.javis.javigg.streak.dto.MiniStreakDto;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.concurrent.Executor;
 
+/** Builds the live-game lobby: every participant's name, recent streak and playstyle tags. */
 @Service
 public class LiveGameService {
 
+    private static final Logger log = LoggerFactory.getLogger(LiveGameService.class);
+
+    private static final int TAG_MATCH_COUNT = 5;
+    private static final int STREAK_MATCH_COUNT = 3;
+
+    private final SpectatorService spectatorService;
+    private final AccountService accountService;
     private final MatchService matchService;
     private final StreakService streakService;
     private final TagService tagService;
-    private final RiotApiClient riotApiClient;
+    private final Executor executor;
 
-    public LiveGameService(MatchService matchService,
+    public LiveGameService(SpectatorService spectatorService,
+                           AccountService accountService,
+                           MatchService matchService,
                            StreakService streakService,
                            TagService tagService,
-                           RiotApiClient riotApiClient) {
+                           @Qualifier(RiotExecutorConfig.RIOT_EXECUTOR) Executor executor) {
+        this.spectatorService = spectatorService;
+        this.accountService = accountService;
         this.matchService = matchService;
         this.streakService = streakService;
         this.tagService = tagService;
-        this.riotApiClient = riotApiClient;
+        this.executor = executor;
     }
 
-    public LiveGameLobbyDto buildLiveGameLobby(String puuid) {
-        CurrentGameInfo game = riotApiClient.getActiveGame(puuid);
-        if (game == null) return null;
+    /** Empty when the player is not currently in a game. */
+    public Optional<LiveGameLobbyDto> findLiveGameLobby(String puuid) {
+        return spectatorService.findActiveGame(puuid).map(this::buildLobby);
+    }
 
-        List<LivePlayerDto> players = game.participants().stream()
+    private LiveGameLobbyDto buildLobby(CurrentGameInfo game) {
+        List<CompletableFuture<LivePlayerDto>> players = game.participants().stream()
                 .filter(p -> p.puuid() != null && !p.puuid().isBlank())
-                .map(p -> CompletableFuture.supplyAsync(() -> buildPlayerDto(p)))
-                .toList()
-                .stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList());
+                .map(this::buildPlayerAsync)
+                .toList();
 
-        return new LiveGameLobbyDto(game.gameId(), game.gameMode(), players);
+        return new LiveGameLobbyDto(game.gameId(), game.gameMode(),
+                players.stream().map(CompletableFuture::join).toList());
     }
 
-    private LivePlayerDto buildPlayerDto(CurrentGameParticipant p) {
-        try {
-            // account lookup and match fetching run in parallel
-            CompletableFuture<Account> accountFuture =
-                    CompletableFuture.supplyAsync(() -> riotApiClient.getAccountByPuuid(p.puuid()));
+    // Composed rather than joined inside pool tasks, so the bounded executor can't deadlock on
+    // tasks waiting for their own subtasks.
+    private CompletableFuture<LivePlayerDto> buildPlayerAsync(CurrentGameParticipant p) {
+        CompletableFuture<Account> account =
+                CompletableFuture.supplyAsync(() -> accountService.getByPuuid(p.puuid()), executor);
+        CompletableFuture<List<IMatchDto.MatchDto>> matches =
+                matchService.getRecentMatchesAsync(p.puuid(), TAG_MATCH_COUNT);
 
-            CompletableFuture<List<IMatchDto.MatchDto>> matchesFuture =
-                    CompletableFuture.supplyAsync(() -> {
-                        List<String> ids = matchService.getMatchHistory(p.puuid(), 5);
-                        return matchService.getMatchDetails(ids);
-                    });
+        return account.thenCombine(matches, (acc, recent) -> toPlayerDto(p, acc, recent))
+                .exceptionally(e -> {
+                    log.warn("Live game lookup failed for one player, returning defaults: {}", e.getMessage());
+                    return toPlayerDto(p, null, List.of());
+                });
+    }
 
-            Account account = accountFuture.join();
-            List<IMatchDto.MatchDto> matches = matchesFuture.join();
+    private LivePlayerDto toPlayerDto(CurrentGameParticipant p, Account account, List<IMatchDto.MatchDto> matches) {
+        List<Boolean> lastResults = matches.stream()
+                .limit(STREAK_MATCH_COUNT)
+                .map(m -> m.participant(p.puuid()).map(IMatchDto.ParticipantDto::win).orElse(false))
+                .toList();
 
-            // streak from first 3, tags from all 5
-            List<Boolean> last3 = matches.stream()
-                    .limit(3)
-                    .map(m -> m.info().participants().stream()
-                            .filter(part -> p.puuid().equals(part.puuid()))
-                            .findFirst()
-                            .map(IMatchDto.ParticipantDto::win)
-                            .orElse(false))
-                    .collect(Collectors.toList());
+        MiniStreakDto streak = streakService.calculateMiniStreak(lastResults);
+        List<String> tags = tagService.generateTags(p.puuid(), matches);
 
-            MiniStreakDto streak = streakService.calculateMiniStreak(last3);
-            List<String> tags = tagService.generateTags(p.puuid(), matches);
-
-            return new LivePlayerDto(
-                    p.puuid(),
-                    account != null ? account.gameName() : null,
-                    p.championId(),
-                    p.profileIconId(),
-                    p.teamId(),
-                    streak,
-                    tags
-            );
-        } catch (Exception e) {
-            return new LivePlayerDto(
-                    p.puuid(),
-                    null,
-                    p.championId(),
-                    p.profileIconId(),
-                    p.teamId(),
-                    streakService.calculateMiniStreak(List.of()),
-                    List.of()
-            );
-        }
+        return new LivePlayerDto(
+                p.puuid(),
+                account != null ? account.gameName() : null,
+                p.championId(),
+                p.profileIconId(),
+                p.teamId(),
+                streak,
+                tags
+        );
     }
 }
