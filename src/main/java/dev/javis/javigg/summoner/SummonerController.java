@@ -5,8 +5,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import dev.javis.javigg.service.ProfileService;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 
 @RestController
 public class SummonerController {
@@ -17,11 +16,13 @@ public class SummonerController {
         this.profileService = profileService;
     }
 
-    // Riot ID limits: gameName 3-16 characters, tagLine 3-5.
+    // Riot IDs: gameName is 3-16 letters, digits or spaces; tagLine is 3-5 letters or digits.
+    // Rejecting anything else here also keeps junk paths from reaching Riot, which answers
+    // unknown paths with a misleading 403.
     @GetMapping("/summoner")
     public SummonerProfileDto getSummoner(
-            @RequestParam @NotBlank @Size(max = 16) String gameName,
-            @RequestParam @NotBlank @Size(max = 5) String tagLine
+            @RequestParam @Pattern(regexp = "\\s*[\\p{L}\\p{N}][\\p{L}\\p{N} ]{0,15}\\s*") String gameName,
+            @RequestParam @Pattern(regexp = "\\s*[\\p{L}\\p{N}]{2,5}\\s*") String tagLine
     ) {
         return profileService.getProfile(gameName.trim(), tagLine.trim());
     }
