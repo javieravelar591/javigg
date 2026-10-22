@@ -54,6 +54,20 @@ class SummonerControllerTest {
     }
 
     @Test
+    void rejectsPathCharactersInRiotId() throws Exception {
+        mvc.perform(get("/summoner").param("gameName", "zz").param("tagLine", "../.."))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/summoner").param("gameName", "a/b").param("tagLine", "NA1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void acceptsUnicodeAndSpacesInGameName() throws Exception {
+        mvc.perform(get("/summoner").param("gameName", "Dôûblêlift Fan").param("tagLine", "NA1"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void missingParamIs400() throws Exception {
         mvc.perform(get("/summoner").param("gameName", "Javi"))
                 .andExpect(status().isBadRequest());

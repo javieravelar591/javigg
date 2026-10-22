@@ -71,7 +71,9 @@ public class RiotApiClient {
             } catch (HttpStatusCodeException e) {
                 int status = e.getStatusCode().value();
                 if (status == 401 || status == 403) {
-                    log.error("Riot rejected the API key ({}) on {}; check riot.api.key", status, pathTemplate);
+                    // Riot also returns 403 for unknown paths, so this isn't always a bad key.
+                    log.error("Riot returned {} on {}: expired/invalid riot.api.key, or an unknown endpoint",
+                            status, pathTemplate);
                 }
                 throw new RiotApiException(status, "Riot API returned " + status + " for " + pathTemplate, null, e);
             } catch (ResourceAccessException e) {
