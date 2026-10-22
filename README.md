@@ -5,8 +5,9 @@ Spring Boot REST API that powers the JaviGG stats client. Wraps the Riot Games A
 ## Features
 
 - **Summoner lookup** — resolves Riot ID → PUUID → summoner profile + ranked entry
-- **Match history** — fetches the last 10 match IDs and retrieves all match details in parallel (finished matches are cached in memory)
-- **Ranked standing** — solo/duo queue tier, LP, wins, and losses via League v4 API
+- **Match history** — fetches the last 20 match IDs and retrieves all match details in parallel (finished matches are cached in memory)
+- **Ranked standing** — current-season solo and flex queue tier, LP, wins, and losses via League v4 API
+- **Champion & role breakdown** — top 5 most-played champions and per-role win rates, computed from the fetched match history
 - **Live game** — active game info with per-player streak calculation (HOT/COLD/NEUTRAL based on last 3 results)
 - **Parallel fetching** — independent Riot calls run concurrently on a bounded thread pool
 - **Rate limiting** — client-side enforcement of Riot's app rate limits per routing host, plus automatic retry on 429 using `Retry-After`
@@ -64,15 +65,22 @@ Returns full summoner profile with match history and ranked data.
 **Response:**
 ```json
 {
-  "account":      { "puuid": "...", "gameName": "...", "tagLine": "..." },
-  "summoner":     { "puuid": "...", "profileIconId": 123, "summonerLevel": 200 },
-  "matchHistory": ["NA1_1234567890", ...],
-  "matchDetails": [ ...10 full match objects... ],
-  "rankedSolo":   { "tier": "GOLD", "rank": "II", "leaguePoints": 45, "wins": 75, "losses": 60 }
+  "account":       { "puuid": "...", "gameName": "...", "tagLine": "..." },
+  "summoner":      { "puuid": "...", "profileIconId": 123, "summonerLevel": 200 },
+  "matchHistory":  ["NA1_1234567890", ...],
+  "matchDetails":  [ ...20 full match objects... ],
+  "rankedSolo":    { "tier": "GOLD", "rank": "II", "leaguePoints": 45, "wins": 75, "losses": 60 },
+  "rankedFlex":    { "tier": "SILVER", "rank": "I", "leaguePoints": 12, "wins": 30, "losses": 28 },
+  "championStats": [
+    { "championId": 157, "championName": "Yasuo", "games": 9, "wins": 6, "losses": 3, "winRate": 66.7 }
+  ],
+  "roleStats": [
+    { "role": "MIDDLE", "games": 14, "wins": 8, "losses": 6, "winRate": 57.1 }
+  ]
 }
 ```
 
-`rankedSolo` is `null` if the summoner is unranked.
+`rankedSolo`/`rankedFlex` are each `null` if the summoner is unranked in that queue — these are Riot's *current*-season standings only, there's no API for past seasons. `championStats` is capped to the top 5 most-played champions; `championStats`/`roleStats` are both computed from `matchDetails`, so they only reflect as many recent games as `matchHistory` includes.
 
 ### `GET /live-game`
 
