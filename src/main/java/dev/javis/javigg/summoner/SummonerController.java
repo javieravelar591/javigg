@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import dev.javis.javigg.riot.Region;
 import dev.javis.javigg.service.ProfileService;
 import jakarta.validation.constraints.Pattern;
 
@@ -22,8 +23,9 @@ public class SummonerController {
     @GetMapping("/summoner")
     public SummonerProfileDto getSummoner(
             @RequestParam @Pattern(regexp = "\\s*[\\p{L}\\p{N}][\\p{L}\\p{N} ]{0,15}\\s*") String gameName,
-            @RequestParam @Pattern(regexp = "\\s*[\\p{L}\\p{N}]{2,5}\\s*") String tagLine
+            @RequestParam @Pattern(regexp = "\\s*[\\p{L}\\p{N}]{2,5}\\s*") String tagLine,
+            @RequestParam(defaultValue = "NA1") Region region
     ) {
-        return profileService.getProfile(gameName.trim(), tagLine.trim());
+        return profileService.getProfile(gameName.trim(), tagLine.trim(), region);
     }
 }

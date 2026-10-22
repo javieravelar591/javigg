@@ -2,6 +2,7 @@ package dev.javis.javigg.service;
 
 import dev.javis.javigg.config.RiotExecutorConfig;
 import dev.javis.javigg.match.dto.IMatchDto;
+import dev.javis.javigg.riot.Region;
 import dev.javis.javigg.riot.dto.Account;
 import dev.javis.javigg.riot.dto.LiveGameLobbyDto;
 import dev.javis.javigg.riot.dto.LivePlayerDto;
@@ -50,14 +51,14 @@ public class LiveGameService {
     }
 
     /** Empty when the player is not currently in a game. */
-    public Optional<LiveGameLobbyDto> findLiveGameLobby(String puuid) {
-        return spectatorService.findActiveGame(puuid).map(this::buildLobby);
+    public Optional<LiveGameLobbyDto> findLiveGameLobby(String puuid, Region region) {
+        return spectatorService.findActiveGame(puuid, region).map(game -> buildLobby(game, region));
     }
 
-    private LiveGameLobbyDto buildLobby(CurrentGameInfo game) {
+    private LiveGameLobbyDto buildLobby(CurrentGameInfo game, Region region) {
         List<CompletableFuture<LivePlayerDto>> players = game.participants().stream()
                 .filter(p -> p.puuid() != null && !p.puuid().isBlank())
-                .map(this::buildPlayerAsync)
+                .map(p -> buildPlayerAsync(p, region))
                 .toList();
 
         return new LiveGameLobbyDto(game.gameId(), game.gameMode(),
@@ -66,11 +67,11 @@ public class LiveGameService {
 
     // Composed rather than joined inside pool tasks, so the bounded executor can't deadlock on
     // tasks waiting for their own subtasks.
-    private CompletableFuture<LivePlayerDto> buildPlayerAsync(CurrentGameParticipant p) {
+    private CompletableFuture<LivePlayerDto> buildPlayerAsync(CurrentGameParticipant p, Region region) {
         CompletableFuture<Account> account =
-                CompletableFuture.supplyAsync(() -> accountService.getByPuuid(p.puuid()), executor);
+                CompletableFuture.supplyAsync(() -> accountService.getByPuuid(p.puuid(), region), executor);
         CompletableFuture<List<IMatchDto.MatchDto>> matches =
-                matchService.getRecentMatchesAsync(p.puuid(), TAG_MATCH_COUNT);
+                matchService.getRecentMatchesAsync(p.puuid(), TAG_MATCH_COUNT, region);
 
         return account.thenCombine(matches, (acc, recent) -> toPlayerDto(p, acc, recent))
                 .exceptionally(e -> {

@@ -1,8 +1,8 @@
 package dev.javis.javigg.service;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import dev.javis.javigg.riot.Region;
 import dev.javis.javigg.riot.RiotApiClient;
 import dev.javis.javigg.riot.dto.Account;
 
@@ -11,21 +11,18 @@ import dev.javis.javigg.riot.dto.Account;
 public class AccountService {
 
     private final RiotApiClient riotApiClient;
-    private final String accountApiUrl;
 
-    public AccountService(RiotApiClient riotApiClient,
-                          @Value("${riot.api.account.url}") String accountApiUrl) {
+    public AccountService(RiotApiClient riotApiClient) {
         this.riotApiClient = riotApiClient;
-        this.accountApiUrl = accountApiUrl;
     }
 
-    public Account getByRiotId(String gameName, String tagLine) {
-        return riotApiClient.get(accountApiUrl, "/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}",
+    public Account getByRiotId(String gameName, String tagLine, Region region) {
+        return riotApiClient.get(region.accountMatchHost(), "/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}",
                 Account.class, gameName, tagLine);
     }
 
-    public Account getByPuuid(String puuid) {
-        return riotApiClient.get(accountApiUrl, "/riot/account/v1/accounts/by-puuid/{puuid}",
+    public Account getByPuuid(String puuid, Region region) {
+        return riotApiClient.get(region.accountMatchHost(), "/riot/account/v1/accounts/by-puuid/{puuid}",
                 Account.class, puuid);
     }
 }

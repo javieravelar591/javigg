@@ -16,6 +16,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import dev.javis.javigg.riot.Region;
 import dev.javis.javigg.riot.RiotApiException;
 import dev.javis.javigg.riot.dto.LiveGameLobbyDto;
 import dev.javis.javigg.service.LiveGameService;
@@ -28,7 +29,7 @@ class LiveGameControllerTest {
 
     @Test
     void returnsLobby() throws Exception {
-        when(liveGameService.findLiveGameLobby("abc-123"))
+        when(liveGameService.findLiveGameLobby("abc-123", Region.NA1))
                 .thenReturn(Optional.of(new LiveGameLobbyDto(42, "CLASSIC", List.of())));
 
         mvc.perform(get("/live-game").param("puuid", "abc-123"))
@@ -38,7 +39,7 @@ class LiveGameControllerTest {
 
     @Test
     void notInGameIs404() throws Exception {
-        when(liveGameService.findLiveGameLobby("abc")).thenReturn(Optional.empty());
+        when(liveGameService.findLiveGameLobby("abc", Region.NA1)).thenReturn(Optional.empty());
 
         mvc.perform(get("/live-game").param("puuid", "abc"))
                 .andExpect(status().isNotFound())
@@ -53,11 +54,27 @@ class LiveGameControllerTest {
 
     @Test
     void rateLimitIs503WithRetryAfter() throws Exception {
-        when(liveGameService.findLiveGameLobby("abc"))
+        when(liveGameService.findLiveGameLobby("abc", Region.NA1))
                 .thenThrow(RiotApiException.rateLimited(Duration.ofSeconds(7)));
 
         mvc.perform(get("/live-game").param("puuid", "abc"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(header().string("Retry-After", "7"));
+    }
+
+    @Test
+    void forwardsAnExplicitRegion() throws Exception {
+        when(liveGameService.findLiveGameLobby("abc-123", Region.KR))
+                .thenReturn(Optional.of(new LiveGameLobbyDto(42, "CLASSIC", List.of())));
+
+        mvc.perform(get("/live-game").param("puuid", "abc-123").param("region", "KR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.gameId").value(42));
+    }
+
+    @Test
+    void rejectsInvalidRegionCode() throws Exception {
+        mvc.perform(get("/live-game").param("puuid", "abc-123").param("region", "zz9"))
+                .andExpect(status().isBadRequest());
     }
 }
