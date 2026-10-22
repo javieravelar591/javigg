@@ -31,10 +31,6 @@ Create `application-local.properties` in the project root (already in `.gitignor
 
 ```properties
 riot.api.key=RGAPI-your-key-here
-riot.api.account.url=https://americas.api.riotgames.com
-riot.api.match.url=https://americas.api.riotgames.com
-riot.api.summoner.url=https://na1.api.riotgames.com
-riot.api.spectator.url=https://na1.api.riotgames.com
 allowed.origins=http://localhost:5173
 
 # Optional
@@ -42,6 +38,8 @@ allowed.origins=http://localhost:5173
 # riot.api.rate-limit-max-wait=10s      # fail with 503 instead of waiting longer than this
 # riot.executor.threads=16
 ```
+
+Riot hosts are no longer configured — they're derived per-request from the `region` query param (see below), so there's nothing to set here for them.
 
 With a production key, set `riot.api.rate-limits` to the limits shown for your app on the Riot developer portal (e.g. `500:10,30000:600`).
 
@@ -59,7 +57,9 @@ The server starts on `http://localhost:8080`.
 
 Returns full summoner profile with match history and ranked data.
 
-**Query params:** `gameName`, `tagLine`
+**Query params:** `gameName`, `tagLine`, `region` (optional, defaults to `NA1`)
+
+`region` is a Riot platform routing value: `NA1`, `BR1`, `LA1`, `LA2`, `EUW1`, `EUN1`, `TR1`, `RU`, `KR`, `JP1`, `OC1`, `SG2`, `TW2`, `VN2`, `PH2`, `TH2`. It's case-insensitive; an unrecognized value is a 400.
 
 **Response:**
 ```json
@@ -78,7 +78,7 @@ Returns full summoner profile with match history and ranked data.
 
 Returns the current active game for a summoner.
 
-**Query params:** `puuid`
+**Query params:** `puuid`, `region` (optional, defaults to `NA1`; same values as `/summoner`)
 
 **Response:**
 ```json
@@ -120,6 +120,7 @@ src/main/java/dev/javis/javigg/
   riot/
     RiotApiClient    # The only HTTP client: auth header, URL encoding, rate limiting, 429 retries
     RiotRateLimiter  # Per-host sliding-window limiter
+    Region           # Platform routing values and their regional (account/match) hosts
     dto/             # Riot response DTOs (records)
   match/dto/
     IMatchDto        # Full match response DTO (participants, perks, etc.)
@@ -129,5 +130,5 @@ src/main/java/dev/javis/javigg/
 ## Notes
 
 - Development Riot API keys expire every 24 hours — restart with a fresh key as needed
-- Region is currently NA only, via the configured base URLs
+- All Riot platform regions are supported via the `region` query param; see `riot/Region.java` for the full list and how platform codes map to Account v1/Match v5 regional hosts
 - For production deployment, set `allowed.origins` to the deployed frontend URL(s), e.g. `https://www.javigg.com,https://javigg.com`

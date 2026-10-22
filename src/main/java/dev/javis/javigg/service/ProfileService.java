@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import dev.javis.javigg.config.RiotExecutorConfig;
 import dev.javis.javigg.match.dto.IMatchDto;
+import dev.javis.javigg.riot.Region;
 import dev.javis.javigg.riot.dto.Account;
 import dev.javis.javigg.riot.dto.LeagueEntryDto;
 import dev.javis.javigg.riot.dto.Summoner;
@@ -39,18 +40,19 @@ public class ProfileService {
         this.executor = executor;
     }
 
-    public SummonerProfileDto getProfile(String gameName, String tagLine) {
-        Account account = accountService.getByRiotId(gameName, tagLine);
+    public SummonerProfileDto getProfile(String gameName, String tagLine, Region region) {
+        Account account = accountService.getByRiotId(gameName, tagLine, region);
         String puuid = account.puuid();
 
         // Summoner, ranked and match lookups are independent, so run them concurrently.
         CompletableFuture<Summoner> summoner =
-                CompletableFuture.supplyAsync(() -> summonerService.getByPuuid(puuid), executor);
+                CompletableFuture.supplyAsync(() -> summonerService.getByPuuid(puuid, region), executor);
         CompletableFuture<LeagueEntryDto> rankedSolo =
-                CompletableFuture.supplyAsync(() -> leagueService.getSoloQueueEntry(puuid).orElse(null), executor);
+                CompletableFuture.supplyAsync(() -> leagueService.getSoloQueueEntry(puuid, region).orElse(null), executor);
         CompletableFuture<List<String>> matchIds =
-                CompletableFuture.supplyAsync(() -> matchService.getMatchIds(puuid, MATCH_HISTORY_COUNT), executor);
-        CompletableFuture<List<IMatchDto.MatchDto>> matches = matchIds.thenCompose(matchService::getMatchesAsync);
+                CompletableFuture.supplyAsync(() -> matchService.getMatchIds(puuid, MATCH_HISTORY_COUNT, region), executor);
+        CompletableFuture<List<IMatchDto.MatchDto>> matches =
+                matchIds.thenCompose(ids -> matchService.getMatchesAsync(ids, region));
 
         try {
             return new SummonerProfileDto(account, summoner.join(), matchIds.join(), matches.join(), rankedSolo.join());

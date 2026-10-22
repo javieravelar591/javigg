@@ -10,6 +10,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import dev.javis.javigg.livegame.NotInGameException;
 import dev.javis.javigg.riot.RiotApiException;
@@ -52,7 +53,8 @@ public class ApiExceptionHandler {
     @ExceptionHandler({
             HandlerMethodValidationException.class,
             ConstraintViolationException.class,
-            MissingServletRequestParameterException.class
+            MissingServletRequestParameterException.class,
+            MethodArgumentTypeMismatchException.class
     })
     public ResponseEntity<ProblemDetail> handleBadRequest(Exception e) {
         return problem(HttpStatus.BAD_REQUEST, "Invalid request parameters");

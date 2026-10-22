@@ -21,15 +21,16 @@ Spring Boot 3.2.5 / Java 17 REST API backing JaviGG, a League of Legends stats s
 Code reads these properties through `@Value`:
 
 - `riot.api.key`
-- `riot.api.{account,match}.url`: regional host (americas)
-- `riot.api.{summoner,spectator}.url`: platform host (na1). League v4 uses `riot.api.league.url`, which defaults to the summoner URL.
 - `allowed.origins`: comma-separated; read by `config/CorsConfig`, which allows GET only
 - Optional: `riot.api.rate-limits` (default `20:1,100:120`, the dev-key limits), `riot.api.rate-limit-max-wait`, `riot.executor.threads`
+
+Riot hosts are not configuration — they're derived per-request from a `Region` (see Architecture below), so there's no `riot.api.*.url` property anymore.
 
 ## Architecture
 
 There is no database. Every request fans out to Riot, so Riot's rate limits are the main scaling constraint.
 
+- **`riot/Region`** is a platform routing value (`NA1`, `EUW1`, `KR`, ...). It knows its own `platformHost()` (Summoner v4, League v4, Spectator v5) and `accountMatchHost()` (Account v1, Match v5 — these two predate the `sea` regional cluster, so `OC1`/`SG2`/`TW2`/`VN2`/`PH2`/`TH2` route through `asia` instead of a nonexistent `sea` host). `RegionConverter` binds the `region` request param case-insensitively; an unrecognized code fails binding and `ApiExceptionHandler` turns that into a 400. Every service method that calls Riot takes a `Region` and builds its host from it — there is no stored/injected base URL anywhere.
 - **`riot/RiotApiClient`** is the only class that makes HTTP calls. Services call `get(baseUrl, pathTemplate, Type.class, vars...)`, and the client:
   - sends the key in the `X-Riot-Token` header, never in the URL
   - strictly encodes URI variables, so user input can't escape its path segment
@@ -52,4 +53,4 @@ There is no database. Every request fans out to Riot, so Riot's rate limits are 
 - **Validation.** Request params are validated with Jakarta annotations directly on controller method params. This relies on Spring 6.1's built-in method validation, so no `@Validated` is needed.
 - **Response shapes.** `/summoner` returns `summoner/SummonerProfileDto`. The client's hand-written TypeScript interfaces in `javigg-client/src/App.tsx` mirror this record and `LiveGameLobbyDto`, so keep both sides in sync.
 - **DTOs** are Java records. The full Match v5 payload lives in `match/dto/IMatchDto`, and `MatchDto.participant(puuid)` finds one player's stats.
-- **Region** is NA only, via the configured base URLs. GitHub issue #1 tracks multi-region support.
+- **Region.** Both `/summoner` and `/live-game` take an optional `region` query param (defaults to `NA1`); see `riot/Region` above. `MatchService`'s cache is keyed by match ID alone — Riot match IDs are prefixed with their originating platform (e.g. `NA1_...`), so they're globally unique and safe to cache without the region.
